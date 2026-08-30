@@ -23,6 +23,24 @@ class DevGuardCliIntegrationTests(unittest.TestCase):
             result = scan_project(temp_dir, scanners=[])
             self.assertEqual(result, [])
 
+    def test_scan_project_uses_registered_scanners_by_default(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "requirements.txt"
+            manifest.write_text("flask\nrequests\n", encoding="utf-8")
+
+            findings = scan_project(temp_dir)
+
+            self.assertTrue(any(f.rule == "DEPENDENCY_MANIFEST" for f in findings))
+
+    def test_scan_project_accepts_empty_scanner_list(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "requirements.txt"
+            manifest.write_text("flask\nrequests\n", encoding="utf-8")
+
+            findings = scan_project(temp_dir, scanners=[])
+
+            self.assertEqual(findings, [])
+
     def test_scan_project_uses_shared_finding_contract(self):
         finding = Finding(
             file="config.py",
@@ -37,6 +55,18 @@ class DevGuardCliIntegrationTests(unittest.TestCase):
         self.assertEqual(finding.rule, "HARDCODED_SECRET")
         self.assertEqual(finding.severity, "HIGH")
         self.assertEqual(finding.message, "Possible hardcoded secret detected")
+
+    def test_registered_scanners_work_together_with_multiple_findings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / ".env").write_text("SECRET_KEY=demo\n", encoding="utf-8")
+            (root / "requirements.txt").write_text("flask\n", encoding="utf-8")
+
+            findings = scan_project(root)
+            rules = {finding.rule for finding in findings}
+
+            self.assertIn("SENSITIVE_FILE", rules)
+            self.assertIn("DEPENDENCY_MANIFEST", rules)
 
     def test_cli_scan_prints_summary_for_valid_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
