@@ -79,6 +79,11 @@ IGNORED_DIRECTORIES = {
     "node_modules",
     "dist",
     "build",
+    "tests",
+    "testdata",
+    "fixtures",
+    "mock",
+    "mocks",
 }
 
 

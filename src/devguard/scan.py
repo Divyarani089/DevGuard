@@ -28,6 +28,11 @@ IGNORED_DIRECTORIES = {
     "site-packages",
     ".idea",
     ".vscode",
+    "tests",
+    "testdata",
+    "fixtures",
+    "mock",
+    "mocks",
 }
 
 

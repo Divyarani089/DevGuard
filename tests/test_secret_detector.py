@@ -1,8 +1,14 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from secret_detector import scan_file
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from devguard.secret_detector import SecretScanner, scan_file
 
 
 class TestSecretDetector(unittest.TestCase):
@@ -232,6 +238,60 @@ class TestSecretDetector(unittest.TestCase):
             self.assertEqual(findings[0]["line"], 10001)
         finally:
             file_path.unlink(missing_ok=True)
+
+    def test_fixture_directories_are_ignored_but_docs_and_examples_are_not(self):
+        project_root = Path(tempfile.mkdtemp())
+
+        try:
+            for directory_name in ["tests", "testdata", "fixtures", "mock", "mocks"]:
+                (project_root / directory_name).mkdir()
+
+            (project_root / "docs").mkdir()
+            (project_root / "examples").mkdir()
+
+            (project_root / "tests" / "test_example.py").write_text(
+                'password = "should_be_ignored"\n',
+                encoding="utf-8",
+            )
+            (project_root / "testdata" / "fixture.txt").write_text(
+                "API_KEY=ignored\n",
+                encoding="utf-8",
+            )
+            (project_root / "fixtures" / "sample.env").write_text(
+                "SECRET_KEY=ignored\n",
+                encoding="utf-8",
+            )
+            (project_root / "mock" / "mocked.py").write_text(
+                "access_token = 'ignored'\n",
+                encoding="utf-8",
+            )
+            (project_root / "mocks" / "x.py").write_text(
+                "auth_token = 'ignored'\n",
+                encoding="utf-8",
+            )
+            (project_root / "docs" / "guide.md").write_text(
+                "API_KEY = 'doc_example'\n",
+                encoding="utf-8",
+            )
+            (project_root / "examples" / "sample.py").write_text(
+                "SECRET_KEY = 'example_value'\n",
+                encoding="utf-8",
+            )
+
+            scanner = SecretScanner()
+            findings = scanner.scan(str(project_root))
+
+            self.assertEqual(len(findings), 2)
+            self.assertEqual({finding.file for finding in findings}, {
+                str(project_root / "docs" / "guide.md"),
+                str(project_root / "examples" / "sample.py"),
+            })
+        finally:
+            for path in sorted(project_root.rglob("*"), reverse=True):
+                if path.is_file() or path.is_symlink():
+                    path.unlink(missing_ok=True)
+                elif path.is_dir():
+                    path.rmdir()
 
 if __name__ == "__main__":
     unittest.main()
