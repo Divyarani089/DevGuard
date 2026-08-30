@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from typing import Iterable
 
+from .dependency_analyzer import DependencyScanner
+from .file_risk import FileRiskScanner
 from .interfaces import BaseScanner
 from .secret_detector import SecretScanner
 
 _REGISTERED_SCANNERS: list[BaseScanner] = []
 
 
-def register_scanner(scanner: BaseScanner) -> None:
-    """Register a scanner instance."""
-    _REGISTERED_SCANNERS.append(scanner)
+def register_scanner(scanner: BaseScanner) -> BaseScanner:
+    """Register a scanner instance if it is not already registered."""
+    if scanner not in _REGISTERED_SCANNERS:
+        _REGISTERED_SCANNERS.append(scanner)
+    return scanner
 
 
 def get_registered_scanners() -> list[BaseScanner]:
@@ -25,3 +29,5 @@ def register_scanners(scanners: Iterable[BaseScanner]) -> None:
 
 
 register_scanner(SecretScanner())
+register_scanner(FileRiskScanner())
+register_scanner(DependencyScanner())
