@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 ﻿__pycache__/
 *.py[cod]
 .venv/
 venv/
 .env
 .pytest_cache/
+=======
+__pycache__/
+*.pyc
+>>>>>>> samarth-scanner
