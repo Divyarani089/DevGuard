@@ -1,8 +1,15 @@
-import unittest
+import sys
 import tempfile
+import unittest
 from pathlib import Path
 
-from file_risk import analyze_file, scan_file_risks
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from devguard.file_risk import FileRiskScanner, analyze_file, scan_file_risks
+from devguard.scan import scan_project
 
 
 class TestAnalyzeFile(unittest.TestCase):
@@ -147,6 +154,29 @@ class TestScanFileRisks(unittest.TestCase):
 
             self.assertIn("CRITICAL", severities)
             self.assertIn("HIGH", severities)
+
+
+class TestFileRiskIntegration(unittest.TestCase):
+    def test_scanner_is_registered_and_used_by_scan_project(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / ".env").write_text("SECRET=test", encoding="utf-8")
+            (root / "normal.txt").write_text("clean text", encoding="utf-8")
+
+            findings = scan_project(root)
+
+            self.assertTrue(any(f.rule == "SENSITIVE_FILE" for f in findings))
+            self.assertFalse(any(f.file.endswith("normal.txt") for f in findings))
+
+    def test_scanner_handles_explicit_custom_scanners(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "credentials.json").write_text("{}", encoding="utf-8")
+
+            findings = scan_project(root, scanners=[FileRiskScanner()])
+
+            self.assertEqual(len(findings), 1)
+            self.assertEqual(findings[0].rule, "SENSITIVE_FILE")
 
 
 if __name__ == "__main__":
