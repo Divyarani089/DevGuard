@@ -13,9 +13,27 @@ const lowCount = document.getElementById("lowCount");
 const findingsTable = document.getElementById("findingsTable");
 const recommendation = document.getElementById("recommendation");
 
+const showAllFindings = document.getElementById("showAllFindings");
+const findingsTitle = document.getElementById("findingsTitle");
+const findingsSubtitle = document.getElementById("findingsSubtitle");
+
+const secretScannerCount =
+    document.getElementById("secretScannerCount");
+
+const fileScannerCount =
+    document.getElementById("fileScannerCount");
+
+const dependencyScannerCount =
+    document.getElementById("dependencyScannerCount");
+
+const scannerCards =
+    document.querySelectorAll(".scanner-filter");
+
+let allFindings = [];
+
 
 /*
- * Calculate security score from real scanner findings.
+ * Calculate security score from real findings.
  */
 function calculateScore(findings) {
     let score = 100;
@@ -45,7 +63,7 @@ function calculateScore(findings) {
 
 
 /*
- * Determine risk level from score.
+ * Determine risk level.
  */
 function getRiskLevel(score) {
     if (score >= 90) {
@@ -65,7 +83,7 @@ function getRiskLevel(score) {
 
 
 /*
- * Count findings by severity.
+ * Update severity counts.
  */
 function updateSeverityCounts(findings) {
     let critical = 0;
@@ -101,6 +119,66 @@ function updateSeverityCounts(findings) {
 
 
 /*
+ * Identify scanner category from finding rule.
+ */
+function getScannerType(finding) {
+    const rule = String(finding.rule || "").toUpperCase();
+
+    if (
+        rule.includes("SECRET") ||
+        rule.includes("TOKEN") ||
+        rule.includes("PRIVATE_KEY") ||
+        rule.includes("API_KEY") ||
+        rule.includes("PASSWORD")
+    ) {
+        return "secret";
+    }
+
+    if (
+        rule.includes("SENSITIVE_FILE") ||
+        rule.includes("FILE_RISK")
+    ) {
+        return "file";
+    }
+
+    if (
+        rule.includes("DEPENDENCY") ||
+        rule.includes("MANIFEST")
+    ) {
+        return "dependency";
+    }
+
+    return "other";
+}
+
+
+/*
+ * Update scanner card counts.
+ */
+function updateScannerCounts(findings) {
+    let secret = 0;
+    let file = 0;
+    let dependency = 0;
+
+    findings.forEach((finding) => {
+        const scanner = getScannerType(finding);
+
+        if (scanner === "secret") {
+            secret++;
+        } else if (scanner === "file") {
+            file++;
+        } else if (scanner === "dependency") {
+            dependency++;
+        }
+    });
+
+    secretScannerCount.textContent = secret;
+    fileScannerCount.textContent = file;
+    dependencyScannerCount.textContent = dependency;
+}
+
+
+/*
  * Create severity badge.
  */
 function createSeverityBadge(severity) {
@@ -108,7 +186,8 @@ function createSeverityBadge(severity) {
 
     badge.classList.add("badge");
 
-    const normalizedSeverity = String(severity).toUpperCase();
+    const normalizedSeverity =
+        String(severity).toUpperCase();
 
     badge.classList.add(
         `badge-${normalizedSeverity.toLowerCase()}`
@@ -121,7 +200,7 @@ function createSeverityBadge(severity) {
 
 
 /*
- * Display real findings.
+ * Display findings.
  */
 function displayFindings(findings) {
     findingsTable.innerHTML = "";
@@ -162,7 +241,8 @@ function displayFindings(findings) {
         ruleCell.textContent = finding.rule || "-";
 
         const messageCell = document.createElement("td");
-        messageCell.textContent = finding.message || "-";
+        messageCell.textContent =
+            finding.message || "-";
 
         row.appendChild(severityCell);
         row.appendChild(fileCell);
@@ -176,7 +256,7 @@ function displayFindings(findings) {
 
 
 /*
- * Generate recommendation from real findings.
+ * Display recommendation.
  */
 function displayRecommendation(findings) {
     if (findings.length === 0) {
@@ -187,22 +267,20 @@ function displayRecommendation(findings) {
 
     const critical = findings.some(
         (finding) =>
-            String(finding.severity).toUpperCase() === "CRITICAL"
+            String(finding.severity).toUpperCase() ===
+            "CRITICAL"
     );
 
     const secret = findings.some(
         (finding) => {
-            const rule = String(finding.rule || "").toUpperCase();
+            const rule =
+                String(finding.rule || "").toUpperCase();
 
             return (
-                rule === "HARDCODED_SECRET" ||
-                rule === "PRIVATE_KEY" ||
-                rule === "API_KEY" ||
-                rule === "API_TOKEN" ||
-                rule === "ACCESS_TOKEN" ||
-                rule === "AUTH_TOKEN" ||
-                rule === "SECRET_KEY" ||
-                rule === "CLIENT_SECRET"
+                rule.includes("SECRET") ||
+                rule.includes("TOKEN") ||
+                rule.includes("PRIVATE_KEY") ||
+                rule.includes("API_KEY")
             );
         }
     );
@@ -240,13 +318,82 @@ function updateDashboard(findings) {
     riskLevel.textContent = risk;
 
     updateSeverityCounts(findings);
+    updateScannerCounts(findings);
     displayFindings(findings);
     displayRecommendation(findings);
 }
 
 
 /*
- * Scan project using the real DevGuard Python backend.
+ * Filter findings by scanner.
+ */
+function filterByScanner(scannerType) {
+    const filteredFindings = allFindings.filter(
+        (finding) =>
+            getScannerType(finding) === scannerType
+    );
+
+    const scannerNames = {
+        secret: "Secret Scanner",
+        file: "File Risk Scanner",
+        dependency: "Dependency Scanner"
+    };
+
+    const scannerName =
+        scannerNames[scannerType] || "Scanner";
+
+    findingsTitle.textContent =
+        `${scannerName} Findings`;
+
+    findingsSubtitle.textContent =
+        `${filteredFindings.length} finding(s) detected by ${scannerName}.`;
+
+    displayFindings(filteredFindings);
+
+    scannerCards.forEach((card) => {
+        card.classList.toggle(
+            "active",
+            card.dataset.scanner === scannerType
+        );
+    });
+}
+
+
+/*
+ * Show all findings.
+ */
+function showAll() {
+    findingsTitle.textContent = "Security Findings";
+
+    findingsSubtitle.textContent =
+        "Issues detected during the latest scan.";
+
+    displayFindings(allFindings);
+
+    scannerCards.forEach((card) => {
+        card.classList.remove("active");
+    });
+}
+
+
+/*
+ * Connect scanner cards.
+ */
+scannerCards.forEach((card) => {
+    card.addEventListener("click", () => {
+        filterByScanner(card.dataset.scanner);
+    });
+});
+
+
+/*
+ * View all findings.
+ */
+showAllFindings.addEventListener("click", showAll);
+
+
+/*
+ * Scan project using real backend.
  */
 async function scanProject(path) {
     const response = await fetch("/api/scan", {
@@ -264,7 +411,9 @@ async function scanProject(path) {
     try {
         data = await response.json();
     } catch (error) {
-        throw new Error("Invalid response received from DevGuard server.");
+        throw new Error(
+            "Invalid response received from DevGuard server."
+        );
     }
 
     if (!response.ok || !data.success) {
@@ -289,7 +438,8 @@ scanButton.addEventListener("click", async () => {
         return;
     }
 
-    scanStatus.textContent = "Scanning project...";
+    scanStatus.textContent =
+        "Scanning project...";
 
     scanButton.disabled = true;
     scanButton.textContent = "Scanning...";
@@ -297,17 +447,21 @@ scanButton.addEventListener("click", async () => {
     try {
         const data = await scanProject(path);
 
-        const findings = Array.isArray(data.findings)
+        allFindings = Array.isArray(data.findings)
             ? data.findings
             : [];
 
-        updateDashboard(findings);
+        updateDashboard(allFindings);
+        showAll();
 
         scanStatus.textContent =
             `Scan completed for: ${path} (${data.total} findings)`;
 
     } catch (error) {
-        console.error("DevGuard scan error:", error);
+        console.error(
+            "DevGuard scan error:",
+            error
+        );
 
         scanStatus.textContent =
             `Scan failed: ${error.message}`;

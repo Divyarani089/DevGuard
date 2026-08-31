@@ -79,27 +79,87 @@
         <!-- Scanner Overview -->
         <section class="section">
 
-            <h2>Security Scanners</h2>
+            <div class="section-heading">
+                <div>
+                    <h2>Security Scanners</h2>
+                    <p>Click a scanner to view its findings.</p>
+                </div>
+
+                <button
+                    type="button"
+                    id="showAllFindings"
+                    class="filter-button"
+                >
+                    View All Findings
+                </button>
+            </div>
 
             <div class="scanner-grid">
 
-                <div class="scanner-card">
+                <!-- Secret Scanner -->
+                <button
+                    type="button"
+                    class="scanner-card scanner-filter"
+                    data-scanner="secret"
+                    aria-label="Filter Secret Scanner findings"
+                >
                     <div class="scanner-icon">🔐</div>
+
                     <h3>Secret Scanner</h3>
-                    <p>Detects hardcoded secrets, tokens and private keys.</p>
-                </div>
 
-                <div class="scanner-card">
+                    <p>
+                        Detects hardcoded secrets, tokens and private keys.
+                    </p>
+
+                    <div class="scanner-status">
+                        <span>Issues detected</span>
+                        <strong id="secretScannerCount">0</strong>
+                    </div>
+                </button>
+
+
+                <!-- File Risk Scanner -->
+                <button
+                    type="button"
+                    class="scanner-card scanner-filter"
+                    data-scanner="file"
+                    aria-label="Filter File Risk Scanner findings"
+                >
                     <div class="scanner-icon">📁</div>
-                    <h3>File Risk Scanner</h3>
-                    <p>Detects sensitive files such as .env and key files.</p>
-                </div>
 
-                <div class="scanner-card">
+                    <h3>File Risk Scanner</h3>
+
+                    <p>
+                        Detects sensitive files such as .env and key files.
+                    </p>
+
+                    <div class="scanner-status">
+                        <span>Issues detected</span>
+                        <strong id="fileScannerCount">0</strong>
+                    </div>
+                </button>
+
+
+                <!-- Dependency Scanner -->
+                <button
+                    type="button"
+                    class="scanner-card scanner-filter"
+                    data-scanner="dependency"
+                    aria-label="Filter Dependency Scanner findings"
+                >
                     <div class="scanner-icon">📦</div>
+
                     <h3>Dependency Scanner</h3>
-                    <p>Identifies dependency manifests and declared dependencies.</p>
-                </div>
+
+                    <p>
+                        Identifies dependency manifests and declared dependencies.
+                    </p>
+
+                    <div class="scanner-status">
+                        <span>Issues detected</span>
+                        <strong id="dependencyScannerCount">0</strong>
+                    </div>
+                </button>
 
             </div>
 
@@ -110,10 +170,15 @@
         <section class="section">
 
             <div class="section-heading">
+
                 <div>
-                    <h2>Security Findings</h2>
-                    <p>Issues detected during the latest scan.</p>
+                    <h2 id="findingsTitle">Security Findings</h2>
+
+                    <p id="findingsSubtitle">
+                        Issues detected during the latest scan.
+                    </p>
                 </div>
+
             </div>
 
             <div class="table-container">
