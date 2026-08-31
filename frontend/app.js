@@ -15,48 +15,13 @@ const recommendation = document.getElementById("recommendation");
 
 
 /*
- * Temporary demo data.
- *
- * This will later be replaced by real results
- * from the DevGuard Python scanner.
+ * Calculate security score from real scanner findings.
  */
-const demoFindings = [
-    {
-        severity: "HIGH",
-        file: "app.py",
-        line: 24,
-        rule: "HARDCODED_SECRET",
-        message: "Possible hardcoded secret detected"
-    },
-    {
-        severity: "CRITICAL",
-        file: ".env",
-        line: null,
-        rule: "SENSITIVE_FILE",
-        message: "Sensitive environment file detected"
-    },
-    {
-        severity: "LOW",
-        file: "requirements.txt",
-        line: 1,
-        rule: "DEPENDENCY_MANIFEST",
-        message: "Dependency manifest detected"
-    }
-];
-
-
-/*
- * Calculate a simple security score.
- *
- * This is only temporary UI logic.
- * The final scoring engine will come from
- * the backend/risk-scoring module.
- */
-function calculateDemoScore(findings) {
+function calculateScore(findings) {
     let score = 100;
 
     findings.forEach((finding) => {
-        switch (finding.severity) {
+        switch (String(finding.severity).toUpperCase()) {
             case "CRITICAL":
                 score -= 30;
                 break;
@@ -109,7 +74,7 @@ function updateSeverityCounts(findings) {
     let low = 0;
 
     findings.forEach((finding) => {
-        switch (finding.severity) {
+        switch (String(finding.severity).toUpperCase()) {
             case "CRITICAL":
                 critical++;
                 break;
@@ -136,24 +101,27 @@ function updateSeverityCounts(findings) {
 
 
 /*
- * Create a severity badge.
+ * Create severity badge.
  */
 function createSeverityBadge(severity) {
     const badge = document.createElement("span");
 
     badge.classList.add("badge");
 
-    const className = `badge-${severity.toLowerCase()}`;
-    badge.classList.add(className);
+    const normalizedSeverity = String(severity).toUpperCase();
 
-    badge.textContent = severity;
+    badge.classList.add(
+        `badge-${normalizedSeverity.toLowerCase()}`
+    );
+
+    badge.textContent = normalizedSeverity;
 
     return badge;
 }
 
 
 /*
- * Display findings in the table.
+ * Display real findings.
  */
 function displayFindings(findings) {
     findingsTable.innerHTML = "";
@@ -181,17 +149,20 @@ function displayFindings(findings) {
         );
 
         const fileCell = document.createElement("td");
-        fileCell.textContent = finding.file;
+        fileCell.textContent = finding.file || "-";
 
         const lineCell = document.createElement("td");
         lineCell.textContent =
-            finding.line === null ? "-" : finding.line;
+            finding.line === null ||
+            finding.line === undefined
+                ? "-"
+                : finding.line;
 
         const ruleCell = document.createElement("td");
-        ruleCell.textContent = finding.rule;
+        ruleCell.textContent = finding.rule || "-";
 
         const messageCell = document.createElement("td");
-        messageCell.textContent = finding.message;
+        messageCell.textContent = finding.message || "-";
 
         row.appendChild(severityCell);
         row.appendChild(fileCell);
@@ -205,7 +176,7 @@ function displayFindings(findings) {
 
 
 /*
- * Display recommendation based on the findings.
+ * Generate recommendation from real findings.
  */
 function displayRecommendation(findings) {
     if (findings.length === 0) {
@@ -215,13 +186,25 @@ function displayRecommendation(findings) {
     }
 
     const critical = findings.some(
-        (finding) => finding.severity === "CRITICAL"
+        (finding) =>
+            String(finding.severity).toUpperCase() === "CRITICAL"
     );
 
     const secret = findings.some(
-        (finding) =>
-            finding.rule === "HARDCODED_SECRET" ||
-            finding.rule === "PRIVATE_KEY"
+        (finding) => {
+            const rule = String(finding.rule || "").toUpperCase();
+
+            return (
+                rule === "HARDCODED_SECRET" ||
+                rule === "PRIVATE_KEY" ||
+                rule === "API_KEY" ||
+                rule === "API_TOKEN" ||
+                rule === "ACCESS_TOKEN" ||
+                rule === "AUTH_TOKEN" ||
+                rule === "SECRET_KEY" ||
+                rule === "CLIENT_SECRET"
+            );
+        }
     );
 
     if (critical) {
@@ -247,10 +230,10 @@ function displayRecommendation(findings) {
 
 
 /*
- * Update the complete dashboard.
+ * Update complete dashboard.
  */
 function updateDashboard(findings) {
-    const score = calculateDemoScore(findings);
+    const score = calculateScore(findings);
     const risk = getRiskLevel(score);
 
     securityScore.textContent = score;
@@ -263,19 +246,46 @@ function updateDashboard(findings) {
 
 
 /*
- * Scan button.
- *
- * For now this displays demo data.
- * In the next step we will replace this
- * with the real Python DevGuard backend.
+ * Scan project using the real DevGuard Python backend.
  */
-scanButton.addEventListener("click", () => {
+async function scanProject(path) {
+    const response = await fetch("/api/scan", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            path: path
+        })
+    });
+
+    let data;
+
+    try {
+        data = await response.json();
+    } catch (error) {
+        throw new Error("Invalid response received from DevGuard server.");
+    }
+
+    if (!response.ok || !data.success) {
+        throw new Error(
+            data.error || "DevGuard scan failed."
+        );
+    }
+
+    return data;
+}
+
+
+/*
+ * Scan button.
+ */
+scanButton.addEventListener("click", async () => {
     const path = projectPath.value.trim();
 
     if (!path) {
         scanStatus.textContent =
             "Please enter a project path.";
-
         return;
     }
 
@@ -284,13 +294,26 @@ scanButton.addEventListener("click", () => {
     scanButton.disabled = true;
     scanButton.textContent = "Scanning...";
 
-    setTimeout(() => {
-        updateDashboard(demoFindings);
+    try {
+        const data = await scanProject(path);
+
+        const findings = Array.isArray(data.findings)
+            ? data.findings
+            : [];
+
+        updateDashboard(findings);
 
         scanStatus.textContent =
-            `Scan completed for: ${path}`;
+            `Scan completed for: ${path} (${data.total} findings)`;
 
+    } catch (error) {
+        console.error("DevGuard scan error:", error);
+
+        scanStatus.textContent =
+            `Scan failed: ${error.message}`;
+
+    } finally {
         scanButton.disabled = false;
         scanButton.textContent = "Scan Project";
-    }, 700);
+    }
 });
